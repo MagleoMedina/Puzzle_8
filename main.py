@@ -1,51 +1,61 @@
-import pygame
-import sys
-import time
-import heapq
-import random
+import pygame # Para la interfaz gráfica
+import sys # Para manejar la interfaz gráfica
+import time # Para medir el tiempo de ejecución
+import heapq # Para la cola de prioridad
+import random # Para generar el puzzle aleatorio
+import threading  # Para manejo de hilos
 
+# Inicializa Pygame y la pantalla
 pygame.init()
 WIDTH, HEIGHT = 400, 400
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Puzzle-8")
 
+# Fuentes para los textos
 FONT_TITLE = pygame.font.SysFont(None, 48)
 FONT_BUTTON = pygame.font.SysFont(None, 32)
 
-# Colors
+# Definición de colores
 WHITE = (255, 255, 255)
 GRAY = (200, 200, 200)
 DARK_GRAY = (100, 100, 100)
 BLACK = (0, 0, 0)
 
-# --- Agrega estas constantes ---
+# Constantes para el puzzle
 PUZZLE_SIZE = 3
 TILE_SIZE = 80
-PUZZLE_ORIGIN = (110, 60)  # x, y offset for puzzle drawing
+PUZZLE_ORIGIN = (110, 60)  # Offset para dibujar el puzzle
+
+# Estado objetivo del puzzle
+#GOAL_STATE = [
+#    [1,2,3],
+#   [4,5,6],
+#  [7,8,0]
+#]
 
 GOAL_STATE = [
     [1,2,3],
-    [4,5,6],
-    [7,8,0]
+    [8,0,4],
+    [7,6,5]
 ]
-# --- Fin de las constantes ---
-
-# Button data: (text, y position)
+# Datos de los botones: (texto, posición y)
 buttons = [
     ("Agente informado", 140),
     ("Agente no informado", 200),
     ("Cerrar", 260)
 ]
 
+# Lista para almacenar los rectángulos de los botones
 button_rects = []
 
 def draw_interface():
+    """Dibuja la interfaz principal con el título y los botones."""
     SCREEN.fill(WHITE)
-    # Draw title
+    # Dibuja el título
     title_surface = FONT_TITLE.render("Puzzle-8", True, BLACK)
     title_rect = title_surface.get_rect(center=(WIDTH//2, 70))
     SCREEN.blit(title_surface, title_rect)
-    # Draw buttons
+    # Dibuja los botones
     button_rects.clear()
     for idx, (text, y) in enumerate(buttons):
         btn_surface = FONT_BUTTON.render(text, True, BLACK)
@@ -55,6 +65,7 @@ def draw_interface():
         button_rects.append(btn_rect.inflate(40, 20))
 
 def manhattan(state):
+    """Calcula la distancia Manhattan total de un estado al estado objetivo."""
     distance = 0
     for i in range(PUZZLE_SIZE):
         for j in range(PUZZLE_SIZE):
@@ -67,12 +78,14 @@ def manhattan(state):
     return distance
 
 def find_zero(state):
+    """Encuentra la posición (i, j) del espacio vacío (0) en el estado."""
     for i in range(PUZZLE_SIZE):
         for j in range(PUZZLE_SIZE):
             if state[i][j] == 0:
                 return i, j
 
 def neighbors(state):
+    """Genera los estados vecinos moviendo el espacio vacío en las 4 direcciones posibles."""
     x, y = find_zero(state)
     moves = []
     for dx, dy in [(-1,0),(1,0),(0,-1),(0,1)]:
@@ -84,9 +97,11 @@ def neighbors(state):
     return moves
 
 def state_to_tuple(state):
+    """Convierte una matriz de estado a una tupla inmutable para usar en sets."""
     return tuple(tuple(row) for row in state)
 
 def a_star(start):
+    """Algoritmo A* para resolver el puzzle usando la heurística de Manhattan."""
     heap = []
     heapq.heappush(heap, (manhattan(start), 0, start, []))
     visited = set()
@@ -104,6 +119,7 @@ def a_star(start):
     return None
 
 def count_expanded_nodes_a_star(start):
+    """Versión de A* que también cuenta los nodos expandidos."""
     heap = []
     heapq.heappush(heap, (manhattan(start), 0, start, []))
     visited = set()
@@ -123,28 +139,53 @@ def count_expanded_nodes_a_star(start):
     return expanded, None
 
 def get_solution_length(solution):
+    """Devuelve la longitud de la solución (cantidad de movimientos)."""
     if solution is None:
         return 0
     return len(solution) - 1  # Excluye el estado inicial
 
 def is_solvable(state):
-    flat = [num for row in state for num in row if num != 0]
+    """Verifica si un estado del puzzle es resoluble respecto al GOAL_STATE actual."""
+    # Convierte ambos estados a listas planas (ignorando el 0)
+    flat_start = [num for row in state for num in row if num != 0]
+    flat_goal = [num for row in GOAL_STATE for num in row if num != 0]
+    # Crea un mapa de valor -> índice en el estado objetivo
+    goal_pos = {val: idx for idx, val in enumerate(flat_goal)}
+    # Transforma flat_start a la permutación respecto a flat_goal
+    perm = [goal_pos[val] for val in flat_start]
+    # Cuenta las inversiones en la permutación
     inv = 0
-    for i in range(len(flat)):
-        for j in range(i+1, len(flat)):
-            if flat[i] > flat[j]:
+    for i in range(len(perm)):
+        for j in range(i+1, len(perm)):
+            if perm[i] > perm[j]:
                 inv += 1
     return inv % 2 == 0
 
 def random_puzzle():
+    """Genera un puzzle aleatorio y resoluble diferente al objetivo.
+    Si el puzzle generado no es resoluble, muestra un mensaje por consola y por la interfaz.
+    """
     nums = list(range(9))
     while True:
         random.shuffle(nums)
         state = [nums[i*3:(i+1)*3] for i in range(3)]
-        if is_solvable(state) and state != GOAL_STATE:
+        if not is_solvable(state):
+            print("Puzzle no resoluble: Generando otro...")
+            # Mostrar mensaje en la interfaz
+            SCREEN.fill(WHITE)
+            msg_surface = FONT_BUTTON.render("Puzzle no resoluble: Generando otro...", True, (200, 0, 0))
+            msg_rect = msg_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+            SCREEN.blit(msg_surface, msg_rect)
+            pygame.display.flip()
+            pygame.time.delay(1200)
+            print(state)
+            continue
+        if state != GOAL_STATE:
+            print("Puzzle resoluble generado:", state)
             return state
-
+        
 def draw_puzzle(state):
+    """Dibuja el estado actual del puzzle en pantalla."""
     for i in range(PUZZLE_SIZE):
         for j in range(PUZZLE_SIZE):
             val = state[i][j]
@@ -157,6 +198,7 @@ def draw_puzzle(state):
                 SCREEN.blit(num_surface, num_rect)
 
 def draw_stats(elapsed, expanded_nodes, solution_length):
+    """Dibuja las estadísticas de la búsqueda en pantalla."""
     label_time = FONT_BUTTON.render("Tiempo", True, BLACK)
     time_surface = FONT_BUTTON.render(f"{elapsed:.2f} s", True, BLACK)
     label_nodes = FONT_BUTTON.render("Nodos", True, BLACK)
@@ -170,55 +212,8 @@ def draw_stats(elapsed, expanded_nodes, solution_length):
     SCREEN.blit(label_length, (10, 220))
     SCREEN.blit(length_surface, (10, 250))
 
-def agente_informado():
-    puzzle = random_puzzle()
-    start_time = time.time()
-    expanded_nodes, solution = count_expanded_nodes_a_star(puzzle)
-    solution_length = get_solution_length(solution)
-
-    for idx, state in enumerate(solution):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-        SCREEN.fill(WHITE)
-        # --- Mostrar título encima del puzzle durante la animación ---
-        titulo_surface = FONT_BUTTON.render("Busqueda Informada", True, BLACK)
-        titulo_rect = titulo_surface.get_rect(center=(WIDTH // 2, PUZZLE_ORIGIN[1] - 30))
-        SCREEN.blit(titulo_surface, titulo_rect)
-        # --- Fin del título ---
-        draw_puzzle(state)
-        elapsed = time.time() - start_time  # Actualiza el tiempo en cada frame
-        # Solo mostrar el tiempo durante la animación
-        label_time = FONT_BUTTON.render("Tiempo:", True, BLACK)
-        time_surface = FONT_BUTTON.render(f"{elapsed:.2f} s", True, BLACK)
-        SCREEN.blit(label_time, (10, 80))
-        SCREEN.blit(time_surface, (10, 110))
-        pygame.display.flip()
-        pygame.time.delay(500)  # 0.5s entre movimientos
-
-    # Al terminar, muestra el tiempo final y los otros valores hasta que el usuario cierre o presione una tecla
-    end_time = time.time()
-    elapsed = end_time - start_time
-    waiting = True
-    while waiting:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
-                waiting = False
-        SCREEN.fill(WHITE)
-        # --- Mostrar título encima del puzzle también al finalizar ---
-        titulo_surface = FONT_BUTTON.render("Busqueda Informada", True, BLACK)
-        titulo_rect = titulo_surface.get_rect(center=(WIDTH // 2, PUZZLE_ORIGIN[1] - 30))
-        SCREEN.blit(titulo_surface, titulo_rect)
-        # --- Fin del título ---
-        draw_puzzle(solution[-1])
-        draw_stats(elapsed, expanded_nodes, solution_length)
-        pygame.display.flip()
-
 def bfs_count_expanded(start):
+    """Búsqueda en anchura (BFS) que cuenta los nodos expandidos."""
     from collections import deque
     queue = deque()
     queue.append((start, []))
@@ -239,9 +234,41 @@ def bfs_count_expanded(start):
     return expanded, None
 
 def agente_no_informado():
+    """Ejecuta la búsqueda no informada (BFS) en un hilo y muestra la animación y estadísticas."""
     puzzle = random_puzzle()
+    result = {"expanded_nodes": None, "solution": None}
+    finished = threading.Event()
+
+    def worker():
+        # Ejecuta la búsqueda BFS y guarda los resultados
+        expanded_nodes, solution = bfs_count_expanded(puzzle)
+        result["expanded_nodes"] = expanded_nodes
+        result["solution"] = solution
+        finished.set()
+
+    # Inicia el hilo para la búsqueda BFS
+    thread = threading.Thread(target=worker)
+    thread.start()
     start_time = time.time()
-    expanded_nodes, solution = bfs_count_expanded(puzzle)
+
+    # Mostrar pantalla de "calculando..." mientras el hilo trabaja
+    while not finished.is_set():
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+        SCREEN.fill(WHITE)
+        titulo_surface = FONT_BUTTON.render("Busqueda No Informada", True, BLACK)
+        titulo_rect = titulo_surface.get_rect(center=(WIDTH // 2, PUZZLE_ORIGIN[1] - 30))
+        SCREEN.blit(titulo_surface, titulo_rect)
+        calc_surface = FONT_BUTTON.render("Calculando...", True, DARK_GRAY)
+        calc_rect = calc_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        SCREEN.blit(calc_surface, calc_rect)
+        pygame.display.flip()
+        pygame.time.delay(500)
+
+    expanded_nodes = result["expanded_nodes"]
+    solution = result["solution"]
     solution_length = get_solution_length(solution)
 
     for idx, state in enumerate(solution):
@@ -262,9 +289,11 @@ def agente_no_informado():
         SCREEN.blit(time_surface, (10, 110))
         pygame.display.flip()
         pygame.time.delay(500)
+        #pygame.time.delay(0)  # Descomentar para ver el tiempo real de ejecución
 
     end_time = time.time()
     elapsed = end_time - start_time
+    print(f"Tiempo de ejecución (no informado): {elapsed:.2f} s")  # Imprime tiempo por consola
     waiting = True
     while waiting:
         for event in pygame.event.get():
@@ -281,7 +310,57 @@ def agente_no_informado():
         draw_stats(elapsed, expanded_nodes, solution_length)
         pygame.display.flip()
 
+def agente_informado():
+    """Ejecuta la búsqueda informada (A*) y muestra la animación y estadísticas."""
+    puzzle = random_puzzle()
+    start_time = time.time()
+    expanded_nodes, solution = count_expanded_nodes_a_star(puzzle)
+    solution_length = get_solution_length(solution)
+
+    for idx, state in enumerate(solution):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+        SCREEN.fill(WHITE)
+        # Mostrar título encima del puzzle durante la animación
+        titulo_surface = FONT_BUTTON.render("Busqueda Informada", True, BLACK)
+        titulo_rect = titulo_surface.get_rect(center=(WIDTH // 2, PUZZLE_ORIGIN[1] - 30))
+        SCREEN.blit(titulo_surface, titulo_rect)
+        draw_puzzle(state)
+        elapsed = time.time() - start_time  # Actualiza el tiempo en cada frame
+        # Solo mostrar el tiempo durante la animación
+        label_time = FONT_BUTTON.render("Tiempo:", True, BLACK)
+        time_surface = FONT_BUTTON.render(f"{elapsed:.2f} s", True, BLACK)
+        SCREEN.blit(label_time, (10, 80))
+        SCREEN.blit(time_surface, (10, 110))
+        pygame.display.flip()
+        pygame.time.delay(500)  # 0.5s entre movimientos
+        #pygame.time.delay(0)  # Descomentar para ver el tiempo real de ejecución
+
+    # Al terminar, muestra el tiempo final y los otros valores hasta que el usuario cierre o presione una tecla
+    end_time = time.time()
+    elapsed = end_time - start_time
+    print(f"Tiempo de ejecución (informado): {elapsed:.2f} s")  # Imprime tiempo por consola
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+                waiting = False
+        SCREEN.fill(WHITE)
+        # Mostrar título encima del puzzle también al finalizar
+        titulo_surface = FONT_BUTTON.render("Busqueda Informada", True, BLACK)
+        titulo_rect = titulo_surface.get_rect(center=(WIDTH // 2, PUZZLE_ORIGIN[1] - 30))
+        SCREEN.blit(titulo_surface, titulo_rect)
+        draw_puzzle(solution[-1])
+        draw_stats(elapsed, expanded_nodes, solution_length)
+        pygame.display.flip()
+
 def main():
+    """Bucle principal del programa, maneja la interfaz y los eventos."""
     while True:
         draw_interface()
         for event in pygame.event.get():
@@ -291,10 +370,10 @@ def main():
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mouse_pos = event.pos
                 if button_rects[0].collidepoint(mouse_pos):
-                    # Acción para "Agente informado"
+                    # LLama a la función para "Agente informado"
                     agente_informado()
                 elif button_rects[1].collidepoint(mouse_pos):
-                    # Acción para "Agente no informado"
+                    # LLama a la función para "Agente no informado"
                     agente_no_informado()
                 elif button_rects[2].collidepoint(mouse_pos):
                     pygame.quit()
