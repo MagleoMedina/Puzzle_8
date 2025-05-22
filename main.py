@@ -26,12 +26,6 @@ PUZZLE_SIZE = 3
 TILE_SIZE = 80
 PUZZLE_ORIGIN = (110, 60)  # Offset para dibujar el puzzle
 
-# Estado objetivo del puzzle
-#GOAL_STATE = [
-#    [1,2,3],
-#   [4,5,6],
-#  [7,8,0]
-#]
 
 GOAL_STATE = [
     [1,2,3],
@@ -64,19 +58,9 @@ def draw_interface():
         SCREEN.blit(btn_surface, btn_rect)
         button_rects.append(btn_rect.inflate(40, 20))
 
-def manhattan(state):
-    """Calcula la distancia Manhattan total de un estado al estado objetivo."""
-    distance = 0
-    for i in range(PUZZLE_SIZE):
-        for j in range(PUZZLE_SIZE):
-            val = state[i][j]
-            if val == 0:
-                continue
-            goal_x = (val - 1) // PUZZLE_SIZE
-            goal_y = (val - 1) % PUZZLE_SIZE
-            distance += abs(i - goal_x) + abs(j - goal_y)
-    return distance
+#Inicio
 
+#---Logica del puzzle---
 def find_zero(state):
     """Encuentra la posición (i, j) del espacio vacío (0) en el estado."""
     for i in range(PUZZLE_SIZE):
@@ -99,44 +83,6 @@ def neighbors(state):
 def state_to_tuple(state):
     """Convierte una matriz de estado a una tupla inmutable para usar en sets."""
     return tuple(tuple(row) for row in state)
-
-def a_star(start):
-    """Algoritmo A* para resolver el puzzle usando la heurística de Manhattan."""
-    heap = []
-    heapq.heappush(heap, (manhattan(start), 0, start, []))
-    visited = set()
-    while heap:
-        f, g, current, path = heapq.heappop(heap)
-        if current == GOAL_STATE:
-            return path + [current]
-        st = state_to_tuple(current)
-        if st in visited:
-            continue
-        visited.add(st)
-        for neighbor in neighbors(current):
-            if state_to_tuple(neighbor) not in visited:
-                heapq.heappush(heap, (g+1+manhattan(neighbor), g+1, neighbor, path + [current]))
-    return None
-
-def count_expanded_nodes_a_star(start):
-    """Versión de A* que también cuenta los nodos expandidos."""
-    heap = []
-    heapq.heappush(heap, (manhattan(start), 0, start, []))
-    visited = set()
-    expanded = 0
-    while heap:
-        f, g, current, path = heapq.heappop(heap)
-        if current == GOAL_STATE:
-            return expanded, path + [current]
-        st = state_to_tuple(current)
-        if st in visited:
-            continue
-        visited.add(st)
-        expanded += 1
-        for neighbor in neighbors(current):
-            if state_to_tuple(neighbor) not in visited:
-                heapq.heappush(heap, (g+1+manhattan(neighbor), g+1, neighbor, path + [current]))
-    return expanded, None
 
 def get_solution_length(solution):
     """Devuelve la longitud de la solución (cantidad de movimientos)."""
@@ -212,6 +158,66 @@ def draw_stats(elapsed, expanded_nodes, solution_length):
     SCREEN.blit(label_length, (10, 220))
     SCREEN.blit(length_surface, (10, 250))
 
+#Fin
+
+#Inicio
+#---Funciones de búsqueda Informada---
+def manhattan(state):
+    """Calcula la distancia Manhattan total de un estado al estado objetivo."""
+    distance = 0
+    for i in range(PUZZLE_SIZE):
+        for j in range(PUZZLE_SIZE):
+            val = state[i][j]
+            if val == 0:
+                continue
+            goal_x = (val - 1) // PUZZLE_SIZE
+            goal_y = (val - 1) % PUZZLE_SIZE
+            distance += abs(i - goal_x) + abs(j - goal_y)
+    return distance
+
+def a_star(start):
+    """Algoritmo A* para resolver el puzzle usando la heurística de Manhattan."""
+    heap = []
+    heapq.heappush(heap, (manhattan(start), 0, start, []))
+    visited = set()
+    while heap:
+        f, g, current, path = heapq.heappop(heap)
+        if current == GOAL_STATE:
+            return path + [current]
+        st = state_to_tuple(current)
+        if st in visited:
+            continue
+        visited.add(st)
+        for neighbor in neighbors(current):
+            if state_to_tuple(neighbor) not in visited:
+                heapq.heappush(heap, (g+1+manhattan(neighbor), g+1, neighbor, path + [current]))
+    return None
+
+def count_expanded_nodes_a_star(start):
+    """Versión de A* que también cuenta los nodos expandidos."""
+    heap = []
+    heapq.heappush(heap, (manhattan(start), 0, start, []))
+    visited = set()
+    expanded = 0
+    while heap:
+        f, g, current, path = heapq.heappop(heap)
+        if current == GOAL_STATE:
+            return expanded, path + [current]
+        st = state_to_tuple(current)
+        if st in visited:
+            continue
+        visited.add(st)
+        expanded += 1
+        for neighbor in neighbors(current):
+            if state_to_tuple(neighbor) not in visited:
+                heapq.heappush(heap, (g+1+manhattan(neighbor), g+1, neighbor, path + [current]))
+    return expanded, None
+
+#Fin
+
+#Inicio
+#---Funciones de búsqueda No Informada---
+
 def bfs_count_expanded(start):
     """Búsqueda en anchura (BFS) que cuenta los nodos expandidos."""
     from collections import deque
@@ -232,6 +238,11 @@ def bfs_count_expanded(start):
             if state_to_tuple(neighbor) not in visited:
                 queue.append((neighbor, path + [current]))
     return expanded, None
+
+#Fin
+
+#Inicio
+#Creacion de los agentes 
 
 def agente_no_informado():
     """Ejecuta la búsqueda no informada (BFS) en un hilo y muestra la animación y estadísticas."""
@@ -358,6 +369,8 @@ def agente_informado():
         draw_puzzle(solution[-1])
         draw_stats(elapsed, expanded_nodes, solution_length)
         pygame.display.flip()
+
+#Fin
 
 def main():
     """Bucle principal del programa, maneja la interfaz y los eventos."""
