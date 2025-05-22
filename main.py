@@ -131,7 +131,7 @@ def random_puzzle():
             return state
         
 def draw_puzzle(state):
-    """Dibuja el estado actual del puzzle en pantallaa."""
+    """Dibuja el estado actual del puzzle en pantalla."""
     for i in range(PUZZLE_SIZE):
         for j in range(PUZZLE_SIZE):
             val = state[i][j]
