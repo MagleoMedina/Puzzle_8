@@ -300,7 +300,7 @@ def agente_no_informado():
         SCREEN.blit(time_surface, (10, 110))
         pygame.display.flip()
         pygame.time.delay(500)
-        #pygame.time.delay(0)  # Descomentar para ver el tiempo real de ejecución
+       # pygame.time.delay(0)  # Descomentar para ver el tiempo real de ejecución
 
     end_time = time.time()
     elapsed = end_time - start_time
