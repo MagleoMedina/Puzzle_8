@@ -84,7 +84,7 @@ Puedes modificar el estado objetivo (`GOAL_STATE`) o experimentar con otras heur
 
 ## Créditos
 
-Desarrollado por [Magleo Medina].
+Desarrollado por Magleo Medina.
 
 
 ---
